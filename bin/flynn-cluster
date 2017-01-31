@@ -7,7 +7,7 @@ require 'httparty'
 
 # Custom libs
 $:.unshift File.join(File.dirname(__FILE__), "..")
-require 'lib/systools'
+require 'lib/flynn/cli/tools'
 
 tp.set :max_width, 100
 
@@ -52,14 +52,14 @@ def lc_table_row obj
 	})
 end
 
-module SysTools
+module Flynn::CLI::Tools
 
 	Commander.configure do
-		include SysTools::CommanderSetup
+		include Flynn::CLI::Tools::CommanderSetup
 		program :description, "Administrates flynn clusters on AWS"
 
 		global_option "-y", "--yes", "Assume 'yes' to all prompts and run non-interactively." do
-			SysTools.options[:yes] = true
+			Flynn::CLI::Tools.options[:yes] = true
 		end
 
 		command :list do |c|
@@ -69,7 +69,7 @@ module SysTools
 			c.action do |args, opts|
 
 				# Find all auto scaling groups
-				res = JSON.parse(SysTools.capture "aws autoscaling describe-auto-scaling-groups")
+				res = JSON.parse(Flynn::CLI::Tools.capture "aws autoscaling describe-auto-scaling-groups")
 
 				# Find only the ones that are flynn tagged
 				rows = []
@@ -96,7 +96,7 @@ module SysTools
 			c.action do |args, opts|
 
 				# Find all launch configurations
-				res = JSON.parse(SysTools.capture "aws autoscaling describe-launch-configurations")
+				res = JSON.parse(Flynn::CLI::Tools.capture "aws autoscaling describe-launch-configurations")
 
 				# Find only the ones that are flynn related
 				rows = []
@@ -128,12 +128,12 @@ module SysTools
 
 				# Pull a specific version?
 				if opts.for_version
-					puts "\nFlynn AMI for version #{opts.for_version} in region #{SysTools.aws_region}...\n\n"
-					tp SysTools.flynn_images opts.for_version
+					puts "\nFlynn AMI for version #{opts.for_version} in region #{Flynn::CLI::Tools.aws_region}...\n\n"
+					tp Flynn::CLI::Tools.flynn_images opts.for_version
 					puts ""
 				else
-					puts "\nFlynn AMIs for region #{SysTools.aws_region}...\n\n"
-					tp SysTools.flynn_images
+					puts "\nFlynn AMIs for region #{Flynn::CLI::Tools.aws_region}...\n\n"
+					tp Flynn::CLI::Tools.flynn_images
 					puts ""
 				end
 
