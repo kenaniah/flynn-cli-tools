@@ -9,10 +9,10 @@ Gem::Specification.new do |spec|
   spec.summary       = "A collection of CLI tools for administrating Flynn (flynn.io)"
   spec.homepage      = "https://github.com/kenaniah/flynn-cli-tools"
 
-  spec.files         = `git ls-files -z`.split("\x0").select{ |f| f.match /(lib|exe)\// }
+  spec.files         = `git ls-files -z`.split("\x0").select{ |f| f.match /(lib|bin)\// }
 
-  spec.bindir        = "exe"
-  spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
+  spec.bindir        = "bin"
+  spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
   spec.add_development_dependency "bundler"
