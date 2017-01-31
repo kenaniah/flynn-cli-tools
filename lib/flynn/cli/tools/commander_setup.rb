@@ -1,4 +1,5 @@
 # Provides defaults for programs that use commander
+require_relative 'version'
 module Flynn
 	module CLI
 		module Tools
