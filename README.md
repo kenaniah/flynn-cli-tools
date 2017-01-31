@@ -1,35 +1,27 @@
 # Flynn CLI Tools
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/flynn/cli/tools`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Provides a number of CLI tools for managing Flynn clusters using AWS and CloudFlare.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
-```ruby
-gem 'flynn-cli-tools'
+```bash
+    # Install Flynn (https://flynn.io/docs/cli#installation)
+    $ L=/usr/local/bin/flynn && curl -sSL -A "`uname -sp`" https://dl.flynn.io/cli | zcat >$L && chmod +x $L
+
+    # Install AWS CLI tools
+    $ brew install awscli
+
+    # Install the gem
+    $ gem install flynn-cli-tools
 ```
 
-And then execute:
+# Tools Provided
 
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install flynn-cli-tools
-
-## Usage
-
-TODO: Write usage instructions here
-
-## Development
-
-After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
-
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/flynn-cli-tools. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
+| Tool | Description |
+| ---- | ----------- |
+| `flynn-cluster` | Administrates flynn clusters on AWS |
+| `flynn-dns` | Administrates DNS for a flynn cluster via CloudFlare |
+| `flynn-migrate` | Moves a flynn app from one cluster to another |
+| `flynn-release` | Creates a new version of an app and tags it in git |
