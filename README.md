@@ -4,7 +4,7 @@ Provides a number of CLI tools for managing Flynn clusters using AWS and CloudFl
 
 ## Installation
 
-Add this line to your application's Gemfile:
+Run this in your shell:
 
 ```bash
     # Install Flynn (https://flynn.io/docs/cli#installation)
