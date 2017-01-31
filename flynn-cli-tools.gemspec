@@ -1,9 +1,9 @@
 # coding: utf-8
-
+require File.expand_path("../lib/flynn/cli/tools/version", __FILE__)
 Gem::Specification.new do |spec|
 
   spec.name          = "flynn-cli-tools"
-  spec.version       = "0.0.1"
+  spec.version       = Flynn::CLI::Tools::VERSION
   spec.authors       = ["Kenaniah Cerny"]
   spec.email         = ["kenaniah@gmail.com"]
 

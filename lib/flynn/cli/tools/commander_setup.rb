@@ -5,7 +5,7 @@ module Flynn
 			module CommanderSetup
 				def self.included mod
 					mod.class_exec do
-						program :version, "0.0.0"
+						program :version, Flynn::CLI::Tools::VERSION
 						default_command :help
 
 						global_option "--dry-run", "Prevents this command from making changes" do |v|
