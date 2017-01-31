@@ -1,0 +1,191 @@
+#!/usr/bin/env ruby
+
+require 'table_print'
+require 'commander'
+
+# Custom libs
+$:.unshift File.join(File.dirname(__FILE__), "..")
+require 'lib/flynn/cli/tools'
+require 'lib/flynn/cli/tools/cloudflare'
+
+tp.set :max_width, 100
+
+module Flynn::CLI::Tools
+
+	IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+	TABLE_FIELDS = [:id, :type, :name, :ttl, :content]
+
+	Commander.configure do
+		include CommanderSetup
+		program :description, "Administrates DNS for a flynn cluster"
+
+		global_option "-y", "--yes", "Assume 'yes' to all prompts and run non-interactively." do
+			Flynn::CLI::Tools.options[:yes] = true
+		end
+
+		command :list do |c|
+
+			c.description = "Outputs DNS info for a cluster"
+
+			c.action do |args, opts|
+
+				name = "#{Flynn::CLI::Tools.flynn_cluster}.#{ENV['CLOUDFLARE_ZONE']}"
+
+				puts "\nDNS records for #{name}...\n\n"
+				tp CloudFlare.get("/zones/#{CloudFlare.zone_identifier}/dns_records?name=#{name},*.#{name}"), *TABLE_FIELDS
+				puts ""
+
+			end
+
+		end
+
+		command :"remove-cluster" do |c|
+
+			c.description = "Removes all DNS entries for the cluster"
+
+			c.action do |args, opts|
+
+				name = "#{Flynn::CLI::Tools.flynn_cluster}.#{ENV['CLOUDFLARE_ZONE']}"
+
+				# List the entries to be removed
+				entries = CloudFlare.get("/zones/#{CloudFlare.zone_identifier}/dns_records?name=#{name},*.#{name}&type=CNAME,A")
+				puts "\nDNS records to be removed for #{name}...\n\n"
+				tp [entries], *TABLE_FIELDS
+
+				# Ask
+				agreed = agree "This will remove the DNS entries listed above. Are you sure? (y/n)" unless Flynn::CLI::Tools.options[:yes]
+				if agreed || Flynn::CLI::Tools.options[:yes]
+
+					# Remove the records
+					puts ""
+					entries.each do |entry|
+						CloudFlare.delete("/zones/#{CloudFlare.zone_identifier}/dns_records/#{entry['id']}")
+						puts "Removed #{entry['type']} record for #{entry['content']}"
+					end
+
+				end
+
+				puts ""
+
+			end
+
+		end
+
+		command :"add-ip" do |c|
+
+			c.description = "Adds an A record for the given IP to the cluster"
+
+			c.action do |args, opts|
+
+				# Verify the IP address
+				ip = args[0]
+				unless ip.match IP_REGEX
+					Flynn::CLI::Tools.logger.error "add-ip: Invalid IP address: #{ip}"
+					puts "Invalid IP address. Given: #{ip}"
+					exit 1
+				end
+
+				name = "#{Flynn::CLI::Tools.flynn_cluster}.#{ENV['CLOUDFLARE_ZONE']}"
+				agreed = agree "Add A record for #{ip} to #{name}? (y/n)" unless Flynn::CLI::Tools.options[:yes]
+
+				# Ensure the CNAME record exists
+				req = {
+					body: {
+						type: "CNAME",
+						name: "*.#{name}",
+						content: name,
+						ttl: 1
+					}.to_json
+				}
+				res = CloudFlare.raw_post("/zones/#{CloudFlare.zone_identifier}/dns_records", req)
+				if res["success"]
+					puts "\nAdded CNAME record for cluster...\n\n"
+					tp [res["result"]], *TABLE_FIELDS
+				end
+
+				# Add the record
+				if agreed || Flynn::CLI::Tools.options[:yes]
+					req = {
+						body: {
+							type: "A",
+							name: name,
+							content: ip,
+							ttl: 1
+						}.to_json
+					}
+					res = CloudFlare.post("/zones/#{CloudFlare.zone_identifier}/dns_records", req)
+					puts "\nAdded DNS record...\n\n"
+					tp [res], *TABLE_FIELDS
+					puts ""
+				end
+
+			end
+
+		end
+
+		command :"remove-ip" do |c|
+
+			c.description = "Removes the A record of the given IP from the cluster"
+
+			c.action do |args, opts|
+
+				# Verify the IP addrss
+				ip = args[0]
+				unless ip.match IP_REGEX
+					Flynn::CLI::Tools.logger.error "remove-ip: Invalid IP address: #{ip}"
+					puts "Invalid IP address. Given: #{ip}"
+					exit 1
+				end
+
+				name = "#{Flynn::CLI::Tools.flynn_cluster}.#{ENV['CLOUDFLARE_ZONE']}"
+				agreed = agree "Delete A record for #{ip} from #{name}? (y/n)" unless Flynn::CLI::Tools.options[:yes]
+
+				# Remove the record
+				if agreed || Flynn::CLI::Tools.options[:yes]
+
+					# Find the record
+					record = nil
+					entries = CloudFlare.get("/zones/#{CloudFlare.zone_identifier}/dns_records?name=#{name}&type=A")
+					entries.each do |entry|
+						record = entry if entry['content'] == ip
+					end
+					unless record
+						Flynn::CLI::Tools.logger.error "remove-ip: IP address not found in cluster #{Flynn::CLI::Tools.flynn_cluster}: #{ip}"
+						exit 1
+					end
+
+					# Remove it
+					CloudFlare.delete("/zones/#{CloudFlare.zone_identifier}/dns_records/#{record['id']}")
+
+					puts "\nRemoved DNS record...\n\n"
+					tp [record], *TABLE_FIELDS
+
+					# Remove the CNAME if the last record was deleted
+					if entries.length == 1
+
+						# Find the CNAME
+						entries = CloudFlare.raw_get("/zones/#{CloudFlare.zone_identifier}/dns_records?name=*.#{name}&type=CNAME")
+						if entries["success"] && entries["result"].length == 1
+
+							# Remove it
+							Flynn::CLI::Tools.logger.info "remove-ip: Removing CNAME for cluster #{Flynn::CLI::Tools.flynn_cluster}"
+							CloudFlare.delete("/zones/#{CloudFlare.zone_identifier}/dns_records/#{entries["result"][0]['id']}")
+
+							puts "\nRemoved CNAME record for cluster...\n\n"
+							tp [entries["result"]], *TABLE_FIELDS
+
+						end
+
+					end
+
+					puts ""
+
+				end
+
+			end
+
+		end
+
+	end
+
+end

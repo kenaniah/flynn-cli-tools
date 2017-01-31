@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# Rename the remote
+git remote remove flynn
+
+# Create the app
+flynn create $(basename $(pwd))
+
+# Add the environment
+cat .flynn-env | xargs flynn env set
+
+# Add the routes
+bash .flynn-routes
+
+# Create a release
+flynn-release
+
+# Run post-create
+bash .flynn-post-create
+
+# Show running processes
+flynn ps

@@ -1,0 +1,80 @@
+#!/usr/bin/env ruby
+
+# Custom libs
+$:.unshift File.join(File.dirname(__FILE__), "..")
+require 'lib/flynn/cli/tools'
+
+module Flynn::CLI::Tools
+
+	# Default options
+	self.options.merge!({
+		release: true,
+		tag: true,
+		tag_prefix: app_env + "-release-"
+	})
+
+	# Build options parser
+	OptionParser.new do |opts|
+		opts.on "--no-tag", "Skips tagging the release" do |v|
+			options[:tag] = v
+		end
+		opts.on "--no-build", "Skips pushing to flynn repo" do |v|
+			options[:release] = v
+		end
+		opts.on "-r REMOTE", "--remote REMOTE", String, "Set the git remote to release to" do |v|
+			options[:remote] = v
+		end
+		opts.add_general_options!
+	end.parse!
+
+	# Attempt a release if configured
+	if options[:release]
+
+		system "git push #{options[:remote]}"
+		exit_if_failed
+
+	end
+
+	# Attempt to tag the release
+	if options[:tag]
+
+		# Determine the tag prefix
+		prefix = app_env + "-release-"
+
+		# Find the last release id
+		release = capture "flynn release -q | head -n 1"
+		logger.info "Tagging release #{release}"
+
+		# Find the last release number
+		num = capture "git tag | egrep '^#{prefix}[0-9]+' | wc -l"
+		last_release = num.to_i rescue 0
+
+		# Check the last tag
+		create_release_tag = true
+		if last_release > 0
+
+			last_commit = capture "git rev-list -n 1 #{prefix}#{num}"
+			head_commit = capture "git rev-list -n 1 HEAD"
+
+			if last_commit == head_commit
+				logger.info "Tag #{prefix}#{num} already exists"
+				create_release_tag = false
+			end
+
+		end
+
+		# Create a new release tag if needed
+		if create_release_tag
+			tag = prefix + (num.to_i + 1).to_s
+			system "git tag -a #{tag} -m 'Flynn release #{release} on cluster #{flynn_cluster}'"
+			system "git push origin #{tag}"
+		end
+
+		# Update the current environment tag
+		tag = "#{app_env}-current"
+		system "git tag -f -a #{tag} -m 'Flyyn release #{release} on cluster #{flynn_cluster}'"
+		system "git push origin #{tag} --force"
+
+	end
+
+end
