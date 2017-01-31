@@ -1,6 +1,7 @@
 # coding: utf-8
 
 Gem::Specification.new do |spec|
+
   spec.name          = "flynn-cli-tools"
   spec.version       = "0.0.1"
   spec.authors       = ["Kenaniah Cerny"]
@@ -15,6 +16,12 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  spec.add_dependency 'table_print'
+  spec.add_dependency 'commander'
+  spec.add_dependency 'json'
+  spec.add_dependency 'httparty'
+
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"
+
 end

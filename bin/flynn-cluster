@@ -1,0 +1,157 @@
+#!/usr/bin/env ruby
+
+require 'table_print'
+require 'commander'
+require 'json'
+require 'httparty'
+
+# Custom libs
+$:.unshift File.join(File.dirname(__FILE__), "..")
+require 'lib/systools'
+
+tp.set :max_width, 100
+
+# Returns whether the object is tagged with something
+def has_tag? obj, key, value
+	obj["Tags"].each do |tag|
+		return true if tag["Key"] == key && tag["Value"] == value
+	end
+	return false
+end
+
+# Returns the value of a tag or nil
+def tag_value obj, key
+	obj["Tags"].each do |tag|
+		return tag["Value"] if tag["Key"] == key
+	end
+	nil
+end
+
+# Returns a table row for the given auto scaling group
+def asg_table_row obj
+	return ({
+		cluster: tag_value(obj, "Name"),
+		asg_name: obj["AutoScalingGroupName"],
+		launch_config: obj["LaunchConfigurationName"],
+		num_instances: obj["Instances"].length,
+		zones: obj["AvailabilityZones"].join(", "),
+		created: obj["CreatedTime"]
+	})
+end
+
+# Returns a table row for the given launch configuration
+def lc_table_row obj
+	return ({
+		launch_config: obj["LaunchConfigurationName"],
+		version: obj["LaunchConfigurationName"].sub('Flynn Platform', '').strip,
+		image: obj["ImageId"],
+		instance_type: obj["InstanceType"],
+		security_groups: obj["SecurityGroups"].join(", "),
+		ssh_key: obj["KeyName"],
+		created: obj["CreatedTime"]
+	})
+end
+
+module SysTools
+
+	Commander.configure do
+		include SysTools::CommanderSetup
+		program :description, "Administrates flynn clusters on AWS"
+
+		global_option "-y", "--yes", "Assume 'yes' to all prompts and run non-interactively." do
+			SysTools.options[:yes] = true
+		end
+
+		command :list do |c|
+
+			c.description = "Lists existing flynn clusters"
+
+			c.action do |args, opts|
+
+				# Find all auto scaling groups
+				res = JSON.parse(SysTools.capture "aws autoscaling describe-auto-scaling-groups")
+
+				# Find only the ones that are flynn tagged
+				rows = []
+				res["AutoScalingGroups"].each do |row|
+
+					if tag_value(row, "Platform") == "flynn"
+						rows.push asg_table_row(row)
+					end
+
+				end
+
+				puts "\nFlynn auto scaling groups...\n\n"
+				tp rows
+				puts ""
+
+			end
+
+		end
+
+		command :"list-configs" do |c|
+
+			c.description = "Lists existing flynn launch configurations"
+
+			c.action do |args, opts|
+
+				# Find all launch configurations
+				res = JSON.parse(SysTools.capture "aws autoscaling describe-launch-configurations")
+
+				# Find only the ones that are flynn related
+				rows = []
+				res["LaunchConfigurations"].each do |row|
+
+					if row["LaunchConfigurationName"].start_with? "Flynn Platform"
+
+						rows.push lc_table_row(row)
+
+					end
+
+				end
+
+				puts "\nFlynn launch configurations...\n\n"
+				tp rows
+				puts ""
+
+			end
+
+		end
+
+		command :"list-images" do |c|
+
+			c.description = "Lists the AMIs flynn uses by version"
+
+			c.option "--for-version VERSION", "Lists the AMI used by a specific flynn version"
+
+			c.action do |args, opts|
+
+				# Pull a specific version?
+				if opts.for_version
+					puts "\nFlynn AMI for version #{opts.for_version} in region #{SysTools.aws_region}...\n\n"
+					tp SysTools.flynn_images opts.for_version
+					puts ""
+				else
+					puts "\nFlynn AMIs for region #{SysTools.aws_region}...\n\n"
+					tp SysTools.flynn_images
+					puts ""
+				end
+
+			end
+
+		end
+
+		command :"latest-version" do |c|
+
+			c.description = "Shows the latest version released"
+
+			c.action do |args, opts|
+				res = JSON.parse HTTParty.get("https://api.github.com/repos/flynn/flynn/tags").body
+				puts res[0]["name"].strip
+			end
+
+		end
+
+	end
+
+end
