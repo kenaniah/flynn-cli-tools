@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+
+puts "Cleaning old releases"
+`flynn release | tail -n +6 | awk '{print $1}' | xargs -n 1 flynn release delete -y`
+`flynn release`
