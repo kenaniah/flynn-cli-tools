@@ -90,6 +90,40 @@ module Flynn
 
 			end
 
+			def self.latest_version
+				res = JSON.parse HTTParty.get("https://api.github.com/repos/flynn/flynn/tags").body
+				res[0]["name"].strip
+			end
+
+			def self.generate_cloud_config
+
+				# Build a discovery URL
+				discovery_url = "https://discovery.flynn.io" + `curl -X POST https://discovery.flynn.io/clusters -D - -s | grep Location | awk '{print $2}'`
+				version = self.latest_version
+
+				# Return the cloud config
+				<<~EOF
+					#!/bin/bash
+
+					sudo apt update
+					sudo apt-get -o Dpkg::Options::="--force-confnew" upgrade -y
+
+					export FLYNN_VERSION=#{version}
+					sudo FLYNN_VERSION=#{version} bash < <(curl -fsSL https://dl.flynn.io/install-flynn)
+					sudo flynn-host init --discovery #{discovery_url}
+
+					systemctl enable flynn-host.service
+					sudo systemctl start flynn-host
+
+					sudo zpool set autoexpand=on flynn-default
+					sudo truncate -s 80g /var/lib/flynn/volumes/zfs/vdev/flynn-default-zpool.vdev
+					sudo zpool online -e flynn-default /var/lib/flynn/volumes/zfs/vdev/flynn-default-zpool.vdev
+
+					init 6
+				EOF
+
+			end
+
 			def self.aws_region
 				@region ||= self.capture "aws configure get region"
 			end

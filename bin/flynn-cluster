@@ -146,8 +146,19 @@ module Flynn::CLI::Tools
 			c.description = "Shows the latest version released"
 
 			c.action do |args, opts|
-				res = JSON.parse HTTParty.get("https://api.github.com/repos/flynn/flynn/tags").body
-				puts res[0]["name"].strip
+				Flynn::CLI::Tools.latest_version
+			end
+
+		end
+
+		command :"generate-cloud-config" do |c|
+
+			c.description = "Outputs a cloud config file"
+
+			c.action do |args, opts|
+
+				puts Flynn::CLI::Tools.generate_cloud_config
+
 			end
 
 		end
