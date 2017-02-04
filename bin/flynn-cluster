@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'base64'
 require 'table_print'
 require 'commander'
 require 'json'
@@ -158,6 +159,46 @@ module Flynn::CLI::Tools
 			c.action do |args, opts|
 
 				puts Flynn::CLI::Tools.generate_cloud_config
+
+			end
+
+		end
+
+		command :"generate-launch-config" do |c|
+
+			c.description = "Generates a launch configuration"
+
+			c.option "--key-name KEYNAME", "The SSH key to be attached to ec2 instances"
+			c.option "--security-groups GROUPS", "A comma-separated list of security group IDs to be attached"
+			c.option "--volume-size GIGABYTES", "How many gigabytes to use for the root mount"
+
+			c.action do |args, opts|
+
+				version = Flynn::CLI::Tools.latest_version
+				ami = Flynn::CLI::Tools.flynn_images(version).first
+				block_device = JSON.parse(`aws ec2 describe-images --image-ids #{ami[:image]} --query 'Images[*].BlockDeviceMappings[0]'`)
+				block_device.first["Ebs"]["VolumeSize"] = opts.volume_size.to_i
+
+				Tempfile.create "cloud-config" do |file|
+					file.write Flynn::CLI::Tools.generate_cloud_config
+					file.close
+
+					cmd = "aws autoscaling create-launch-configuration"
+					cmd += " --associate-public-ip-address"
+					cmd += " --block-device-mappings #{JSON.generate JSON.generate(block_device)}"
+					cmd += " --ebs-optimized"
+					cmd += " --image-id #{ami[:image]}"
+					cmd += " --instance-type m4.large"
+					cmd += " --key-name #{opts.key_name}"
+					cmd += " --launch-configuration-name 'Flynn Platform #{version}'"
+					cmd += " --security-groups '#{opts.security_groups.split(',').join(' ')}'"
+					cmd += " --user-data file://#{file.path}"
+
+					puts cmd
+					puts `#{cmd}`
+
+				end
+
 
 			end
 

@@ -91,11 +91,12 @@ module Flynn
 			end
 
 			def self.latest_version
+				return @latest_version if @latest_version
 				res = JSON.parse HTTParty.get("https://api.github.com/repos/flynn/flynn/tags").body
-				res[0]["name"].strip
+				@latest_version = res[0]["name"].strip
 			end
 
-			def self.generate_cloud_config
+			def self.generate_cloud_config 
 
 				# Build a discovery URL
 				discovery_url = "https://discovery.flynn.io" + `curl -X POST https://discovery.flynn.io/clusters -D - -s | grep Location | awk '{print $2}'`
@@ -116,7 +117,7 @@ module Flynn
 					sudo systemctl start flynn-host
 
 					sudo zpool set autoexpand=on flynn-default
-					sudo truncate -s 80g /var/lib/flynn/volumes/zfs/vdev/flynn-default-zpool.vdev
+					sudo truncate -s 40g /var/lib/flynn/volumes/zfs/vdev/flynn-default-zpool.vdev
 					sudo zpool online -e flynn-default /var/lib/flynn/volumes/zfs/vdev/flynn-default-zpool.vdev
 
 					init 6
