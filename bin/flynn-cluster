@@ -164,9 +164,9 @@ module Flynn::CLI::Tools
 
 		end
 
-		command :"generate-launch-config" do |c|
+		command :"create-launch-configuration" do |c|
 
-			c.description = "Generates a launch configuration"
+			c.description = "Creates a launch configuration"
 
 			c.option "--key-name KEYNAME", "The SSH key to be attached to ec2 instances"
 			c.option "--security-groups GROUPS", "A comma-separated list of security group IDs to be attached"
@@ -178,6 +178,7 @@ module Flynn::CLI::Tools
 				ami = Flynn::CLI::Tools.flynn_images(version).first
 				block_device = JSON.parse(`aws ec2 describe-images --image-ids #{ami[:image]} --query 'Images[*].BlockDeviceMappings[0]'`)
 				block_device.first["Ebs"]["VolumeSize"] = opts.volume_size.to_i
+				block_device.first["Ebs"].delete "Encrypted"
 
 				Tempfile.create "cloud-config" do |file|
 					file.write Flynn::CLI::Tools.generate_cloud_config
@@ -199,6 +200,45 @@ module Flynn::CLI::Tools
 
 				end
 
+			end
+
+		end
+
+		command :"create-auto-scaling-group" do |c|
+
+			c.description = "Generates an auto-scaling group using a launch configuration"
+
+			c.option "--launch-config NAME", "The name of the launch config to use"
+			c.option "--name NAME", "The name to use for the auto-scaling group"
+			c.option "--parent-domain DOMAIN", "The domain to which a subdomain for this cluster will be added"
+			c.option "--subnets SUBNETS", "A comma-separated list of subnet IDs to launch in"
+
+			c.action do |args, opts|
+
+				tags = [
+					{
+						"Key": "Name",
+						"Value": opts.name,
+						"PropagateAtLaunch": true
+					},
+					{
+						"Key": "Platform",
+						"Value": "flynn",
+						"PropagateAtLaunch": true
+					},
+				]
+
+				cmd = "aws autoscaling create-auto-scaling-group"
+				cmd += " --auto-scaling-group-name #{opts.name}.#{opts.parent_domain}"
+				cmd += " --launch-configuration-name '#{opts.launch_config}'"
+				cmd += " --min-size 3"
+				cmd += " --desired-capacity 3"
+				cmd += " --max-size 3"
+				cmd += " --vpc-zone-identifier #{opts.subnets}"
+				cmd += " --tags #{JSON.generate JSON.generate(tags)}"
+
+				puts cmd
+				puts `#{cmd}`
 
 			end
 
