@@ -107,7 +107,8 @@ module Flynn
 					#!/bin/bash
 
 					sudo apt update
-					sudo apt-get -o Dpkg::Options::="--force-confnew" upgrade -y
+					sudo DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confnew" upgrade -y
+					sudo DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confnew" full-upgrade -y
 
 					export FLYNN_VERSION=#{version}
 					sudo FLYNN_VERSION=#{version} bash < <(curl -fsSL https://dl.flynn.io/install-flynn)
